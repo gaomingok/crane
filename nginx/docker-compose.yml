@@ -1,0 +1,14 @@
+version: '3'
+services:
+  nginx:
+    image: docker.io/nginx:latest
+    container_name: nginx
+    restart: always
+    ports:
+     - "8080:80"
+    environment:
+     - NGINX_HOST=gaomingok.vicp.net
+     - NGINX_PORT=80
+    volumes:
+     - ./templates:/etc/nginx/templates
+     - ./html:/opt/nginx
