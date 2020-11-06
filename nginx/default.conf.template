@@ -1,0 +1,18 @@
+server {
+    listen       80;
+    listen  [::]:80;
+    server_name  localhost;
+    charset utf-8;
+
+    #charset koi8-r;
+    #access_log  /var/log/nginx/host.access.log  main;
+
+    location / {
+        root   /opt/nginx;
+        index  index.html index.htm;
+    }
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /opt/nginx;
+    }
+}
