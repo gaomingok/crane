@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="utf-8">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>几何计算绘图工具</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft YaHei"}
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:10px;
+    background:#f8f9fa;
+    min-height:100vh;
+  }
+  canvas{
+    border:1px solid #ccc;
+    background:#fff;
+    margin-bottom:10px;
+    max-width:100%;
+    height:auto;
+  }
+  .panel{
+    width:100%;
+    max-width:400px;
+    padding:12px;
+    background:#fff;
+    border:1px solid #ccc;
+    border-radius:6px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+  }
+  .input-group{display:flex;align-items:center;gap:4px}
+  .input-group label{font-size:14px;color:#333}
+  input{
+    width:60px;
+    padding:8px 6px;
+    border:1px solid #ccc;
+    border-radius:4px;
+    font-size:14px;
+    text-align:center;
+  }
+  button{
+    padding:8px 24px;
+    background:#2d8cf0;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  button:active{transform:scale(0.95)}
+  .result-panel{
+    width:100%;
+    max-width:400px;
+    padding:10px;
+    background:#e8f4fc;
+    border-radius:6px;
+    display:flex;
+    justify-content:space-around;
+    font-size:16px;
+    color:#333;
+  }
+  .result-panel b{color:#2196F3}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="panel">
+  <div class="input-group">
+    <label>x =</label>
+    <input type="number" id="x" value="6" step="0.1" min="0.1">
+  </div>
+  <div class="input-group">
+    <label>c =</label>
+    <input type="number" id="c" value="4" step="0.1" min="0.1">
+  </div>
+  <div class="input-group">
+    <label>m =</label>
+    <input type="number" id="m" value="5" step="0.1" min="0.1">
+  </div>
+  <button id="calcBtn">计算</button>
+</div>
+
+<div class="result-panel">
+  <span>l = <b id="resultL">-</b></span>
+  <span>h = <b id="resultH">-</b></span>
+  <span>α = <b id="resultA">-</b>°</span>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let x, c, m, h;
+let l, alpha;
+let O, D, A, B, E, K, F;
+let scale;
+let CANVAS_WIDTH, CANVAS_HEIGHT, PADDING;
+
+function initCanvasSize(){
+  const screenWidth = window.innerWidth - 24;
+  CANVAS_WIDTH = Math.min(screenWidth, 500);
+  CANVAS_HEIGHT = Math.floor(CANVAS_WIDTH * 0.85); // 继续增加高度
+  PADDING = Math.floor(CANVAS_WIDTH * 0.05);
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT;
+}
+
+function drawLine(x1,y1,x2,y2,isBold=false){
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x2,y2);
+  ctx.lineWidth = isBold ? 3 : 1;
+  ctx.strokeStyle = isBold ? '#000' : '#888';
+  if(!isBold) ctx.setLineDash([5,3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function text(str,x,y,align='center',fontSize=14){
+  ctx.fillStyle='#000';
+  ctx.font=fontSize + 'px Arial';
+  ctx.textAlign=align;
+  ctx.textBaseline='middle';
+  ctx.fillText(str,x,y);
+}
+
+function dot(p,label,below=false,fontSize=12){
+  ctx.beginPath();
+  ctx.arc(p.x,p.y,3,0,Math.PI*2);
+  ctx.fill();
+  const offset = below ? fontSize + 5 : -fontSize - 5;
+  text(label,p.x,p.y+offset,'center',fontSize);
+}
+
+function calculateAndDraw(){
+  x = parseFloat(document.getElementById('x').value);
+  c = parseFloat(document.getElementById('c').value);
+  m = parseFloat(document.getElementById('m').value);
+
+  // 计算 h
+  h = m * (x + c) / x;
+
+  // 计算图形边界
+  const maxX = x + c * 2;
+  const maxY = Math.max(m, h);
+  
+  // 先计算fontSize用于边距计算
+  const fontSize = Math.max(10, Math.floor(CANVAS_WIDTH / 40));
+  
+  // 动态计算等比例缩放，留出更多边距确保完整显示
+  const scaleX = (CANVAS_WIDTH - 2 * PADDING) / maxX;
+  const scaleY = (CANVAS_HEIGHT - 2 * PADDING - fontSize * 4) / maxY;
+  scale = Math.min(scaleX, scaleY) * 0.80; // 留出20%边距
+
+  // 原点位置（居中显示）
+  const graphWidth = maxX * scale;
+  const graphHeight = maxY * scale;
+  // 水平居中，垂直居中
+  const OX = PADDING;
+  const OY = (CANVAS_HEIGHT + graphHeight) / 2 + fontSize * 2;
+
+  // 计算所有点坐标
+  O = { x: OX, y: OY };
+  D = { x: OX + x * scale, y: OY };
+  A = { x: D.x, y: OY - m * scale };
+  
+  const half = c;
+  B = { x: A.x + 2 * half * scale, y: A.y };
+  K = { x: A.x + half * scale, y: A.y };
+  E = { x: B.x, y: OY };
+  
+  F = { x: K.x, y: OY - h * scale };
+
+  // 计算 l 和角度
+  l = Math.hypot(x + c, h);
+  alpha = Math.atan2(h, x + c) * 180 / Math.PI;
+
+  // 更新结果显示
+  document.getElementById('resultL').textContent = l.toFixed(2);
+  document.getElementById('resultH').textContent = h.toFixed(2);
+  document.getElementById('resultA').textContent = alpha.toFixed(2);
+
+  ctx.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
+  drawAll();
+}
+
+function drawAll(){
+  const fontSize = Math.max(10, Math.floor(CANVAS_WIDTH / 40));
+  
+  // 绘制图形 - 实线
+  drawLine(A.x,A.y,B.x,B.y, true);
+  drawLine(B.x,B.y,E.x,E.y, true);
+  drawLine(E.x,E.y,D.x,D.y, true);
+  drawLine(D.x,D.y,A.x,A.y, true);
+  drawLine(O.x,O.y,F.x,F.y, true);
+  drawLine(F.x,F.y,K.x,K.y, true);
+  drawLine(O.x,O.y,E.x,O.y, true);
+
+  const dx = F.x - O.x;
+  const dy = F.y - O.y;
+  const len = Math.hypot(dx, dy);
+  const nx = -dy / len;
+  const ny = dx / len;
+
+  const offsetBase = fontSize * 1.8;
+  const offsetH = Math.floor(fontSize * 8); // 减小标注偏移
+
+  // x 标注
+  drawLine(O.x,O.y,D.x,O.y);
+  drawLine(O.x,O.y,O.x,O.y+offsetBase*0.7);
+  drawLine(D.x,O.y,D.x,O.y+offsetBase*0.7);
+  drawLine(O.x,O.y+offsetBase*0.7,D.x,O.y+offsetBase*0.7);
+  text(`x = ${x.toFixed(2)}`, (O.x+D.x)/2, O.y + offsetBase * 0.9, 'center', fontSize);
+
+  // l 标注
+  const l1x = O.x - nx * offsetBase * 0.8;
+  const l1y = O.y - ny * offsetBase * 0.8;
+  const l2x = F.x - nx * offsetBase * 0.8;
+  const l2y = F.y - ny * offsetBase * 0.8;
+  drawLine(O.x,O.y,l1x,l1y);
+  drawLine(F.x,F.y,l2x,l2y);
+  drawLine(l1x,l1y,l2x,l2y);
+  text(`l = ${l.toFixed(2)}`, (l1x+l2x)/2, (l1y+l2y)/2, 'center', fontSize);
+
+  // c 标注
+  const cDown = fontSize * 1.3;
+  drawLine(A.x,A.y,A.x,A.y+cDown);
+  drawLine(K.x,K.y,K.x,K.y+cDown);
+  drawLine(A.x,A.y+cDown,K.x,K.y+cDown);
+  text(`c = ${c.toFixed(2)}`, (A.x+K.x)/2, A.y+cDown+fontSize*0.5, 'center', fontSize);
+
+  // m 标注 - BE的右侧
+  const mRight = fontSize * 1.8;
+  drawLine(B.x,B.y,B.x+mRight,B.y);
+  drawLine(E.x,E.y,E.x+mRight,E.y);
+  drawLine(B.x+mRight,B.y,E.x+mRight,E.y);
+  text(`m = ${m.toFixed(2)}`, B.x+mRight+fontSize*0.5, (B.y+E.y)/2, 'left', fontSize);
+
+  // h 标注 - m的右侧，距离是m的2倍
+  const hRight = mRight * 3;
+  drawLine(F.x,F.y,F.x+hRight,F.y);
+  drawLine(F.x+hRight,O.y,F.x+hRight,F.y);
+  text(`h = ${h.toFixed(2)}`, F.x+hRight+fontSize*0.5, (O.y+F.y)/2, 'left', fontSize);
+
+  // 直角
+  const kSize = fontSize * 0.6;
+  drawLine(K.x-kSize,K.y,K.x-kSize,K.y-kSize);
+  drawLine(K.x-kSize,K.y-kSize,K.x,K.y-kSize);
+
+  // 角度 α
+  const rad = alpha * Math.PI / 180;
+  const arcR = fontSize * 1.8;
+  ctx.beginPath();
+  ctx.arc(O.x,O.y,arcR,0,-rad,true);
+  ctx.strokeStyle='#888';
+  ctx.stroke();
+
+  const alphaMidRad = -rad/2;
+  const alphaTextR = arcR + fontSize;
+  const alphaTx = O.x + alphaTextR * Math.cos(alphaMidRad);
+  const alphaTy = O.y + alphaTextR * Math.sin(alphaMidRad);
+  text(`α = ${alpha.toFixed(2)}°`, alphaTx, alphaTy, 'center', fontSize);
+
+  // 绘制点
+  dot(O,'O',false,fontSize);
+  dot(D,'D',true,fontSize);
+  dot(E,'E',true,fontSize);
+  dot(B,'B',false,fontSize);
+  dot(A,'A',false,fontSize);
+  dot(F,'F',false,fontSize);
+  dot(K,'K',false,fontSize);
+}
+
+document.getElementById('calcBtn').addEventListener('click', function(){
+  saveData();
+  calculateAndDraw();
+});
+
+function saveData(){
+  var inputX = document.getElementById('x').value;
+  var inputC = document.getElementById('c').value;
+  var inputM = document.getElementById('m').value;
+  try {
+    localStorage.setItem('crane2_x', inputX);
+    localStorage.setItem('crane2_c', inputC);
+    localStorage.setItem('crane2_m', inputM);
+  } catch(e) {}
+}
+
+function loadData(){
+  try {
+    var dataX = localStorage.getItem('crane2_x');
+    var dataC = localStorage.getItem('crane2_c');
+    var dataM = localStorage.getItem('crane2_m');
+    if(dataX !== null) document.getElementById('x').value = dataX;
+    if(dataC !== null) document.getElementById('c').value = dataC;
+    if(dataM !== null) document.getElementById('m').value = dataM;
+  } catch(e) {}
+}
+
+window.addEventListener('resize', function(){
+  initCanvasSize();
+  calculateAndDraw();
+});
+
+initCanvasSize();
+loadData();
+calculateAndDraw();
+</script>
+</body>
+</html>

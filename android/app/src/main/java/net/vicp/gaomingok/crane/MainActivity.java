@@ -3,58 +3,64 @@ package net.vicp.gaomingok.crane;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.viewpager2.widget.ViewPager2;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.Toast;
 
-import net.vicp.gaomingok.crane.ui.main.MainFragment;
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
+import net.vicp.gaomingok.crane.adapter.FragmentAdapter;
 
 public class MainActivity extends AppCompatActivity {
-    private WebView webView;
+    private ViewPager2 viewPager;
+    private TabLayout tabLayout;
     private static final int REQUEST_PERMISSION = 1001;
+    private static final String PREFS_NAME = "crane_prefs";
+    private static final String KEY_LAST_TAB = "last_tab";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_activity);
         
-        // 检查并请求存储权限
         checkStoragePermission();
         
-        if (savedInstanceState == null) {
-            getSupportFragmentManager().beginTransaction()
-                .replace(R.id.container, MainFragment.newInstance())
-                .commitNow();
-        }
-
-        webView = (WebView) findViewById(R.id.webView1);
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setDomStorageEnabled(true);
-        webView.getSettings().setDatabaseEnabled(true);
-        String databasePath = getApplicationContext().getDir("database", Context.MODE_PRIVATE).getPath();
-        webView.getSettings().setDatabasePath(databasePath);
-        webView.getSettings().setBlockNetworkImage(false);
-        webView.setScrollBarStyle(0);
-        webView.loadUrl("file:///android_asset/index.html");
-        webView.setWebViewClient(new WebViewClient(){
+        tabLayout = findViewById(R.id.tabLayout);
+        viewPager = findViewById(R.id.viewPager);
+        
+        FragmentAdapter adapter = new FragmentAdapter(this);
+        viewPager.setAdapter(adapter);
+        
+        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            if (position == 0) {
+                tab.setText("固定");
+            } else {
+                tab.setText("动态");
+            }
+        }).attach();
+        
+        // 恢复上次选择的tab
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        int lastTab = prefs.getInt(KEY_LAST_TAB, 0);
+        viewPager.setCurrentItem(lastTab, false);
+        
+        // 监听tab切换，保存选择的tab
+        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                view.loadUrl(url);
-                return true;
+            public void onPageSelected(int position) {
+                prefs.edit().putInt(KEY_LAST_TAB, position).apply();
             }
         });
     }
     
     private void checkStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+ 需要 MANAGE_EXTERNAL_STORAGE
             if (!android.os.Environment.isExternalStorageManager()) {
                 try {
                     android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -66,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Android 6-10 使用旧权限
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
@@ -82,7 +87,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // 再次检查权限是否已授予
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (android.os.Environment.isExternalStorageManager()) {
                 Toast.makeText(this, "存储权限已授予", Toast.LENGTH_SHORT).show();
