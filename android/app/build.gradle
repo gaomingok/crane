@@ -11,11 +11,11 @@ android {
         versionCode 1
         versionName "1.0"
     }
-    android.applicationVariants.all {
-        variant ->
-            variant.outputs.all {
-                outputFileName = "crane.apk"
-            }
+    android.applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def versionName = variant.versionName ?: "1.0"
+            output.outputFileName = "crane-v${versionName}.apk"
+        }
     }
     buildTypes {
         release {
