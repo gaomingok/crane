@@ -14,12 +14,25 @@
     background:#f5f5f5;
     min-height:100vh;
   }
+  #canvas-container{
+    position:sticky;
+    top:0;
+    z-index:100;
+    background:#f5f5f5;
+    width:100%;
+    max-width:450px;
+  }
   canvas{
     border:1px solid #ddd;
     background:#fff;
     margin-bottom:6px;
     max-width:100%;
     height:auto;
+    display:block;
+  }
+  #input-container{
+    width:100%;
+    max-width:450px;
   }
   .panel{
     width:100%;
@@ -84,8 +97,11 @@
 </style>
 </head>
 <body>
+<div id="canvas-container">
 <canvas id="canvas"></canvas>
+</div>
 
+<div id="input-container">
 <div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap">
   <span style="font-size:12px;color:#333;margin-right:6px">网格:</span>
   <label style="font-size:11px;margin:0 8px 0 2px"><input type="radio" name="gridSize" value="100" checked>100×100</label>
@@ -299,13 +315,13 @@ function drawCrane(){
   // 起重机底座(在原点)
   ctx.fillStyle = '#34495e';
   ctx.beginPath();
-  ctx.arc(startX, centerY, 10, 0, Math.PI * 2);
+  ctx.arc(startX, centerY, 1, 0, Math.PI * 2);
   ctx.fill();
 
   // 绘制绞轴标记
   ctx.fillStyle = '#27ae60';
   ctx.beginPath();
-  ctx.arc(pivotX, pivotY, 6, 0, Math.PI * 2);
+  ctx.arc(pivotX, pivotY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#27ae60';
   ctx.font = '9px Arial';
@@ -330,23 +346,12 @@ function drawCrane(){
 
   // 绘制大臂(从绞轴点开始)
   ctx.strokeStyle = '#e74c3c';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(pivotX, pivotY);
   ctx.lineTo(mainEndX, mainEndY);
   ctx.stroke();
-
-  // 大臂上的节段标记
-  ctx.fillStyle = '#c0392b';
-  for(let i = 1; i < mainBoom; i += 5){
-    const t = i / mainBoom;
-    const px = pivotX + (mainEndX - pivotX) * t;
-    const py = pivotY + (mainEndY - pivotY) * t;
-    ctx.beginPath();
-    ctx.arc(px, py, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   // 根据工况绘制副臂
   if(workMode === 'main+jib'){
@@ -357,45 +362,38 @@ function drawCrane(){
     
     // 绘制副臂
     ctx.strokeStyle = '#3498db';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(mainEndX, mainEndY);
     ctx.lineTo(jibEndX, jibEndY);
     ctx.stroke();
-
-    // 副臂上的节段标记
-    ctx.fillStyle = '#2980b9';
-    for(let i = 1; i < jibBoom; i += 3){
-      const t = i / jibBoom;
-      const px = mainEndX + (jibEndX - mainEndX) * t;
-      const py = mainEndY + (jibEndY - mainEndY) * t;
+    
+    // 绘制副臂的圆弧（从角度0到60度）
+    if(workMode === 'main+jib'){
+      ctx.strokeStyle = '#3498db';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      // 副臂从主臂延长线顺时针旋转0-60度
+      const startAngle = (mainAngle - 60) * Math.PI / 180;
+      const endAngle = mainAngle * Math.PI / 180;
       ctx.beginPath();
-      ctx.arc(px, py, 1.5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(mainEndX, mainEndY, jibBoom * gridUnit, -endAngle, -startAngle);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
 
-  // 绘制吊钩和钢丝绳
-  ctx.strokeStyle = '#2c3e50';
-  ctx.lineWidth = 1.5;
+  // 绘制大臂的圆弧（从水平向右到大臂角度，限制在网格范围内）
+  const maxRadius = Math.min(mainBoom, gridSize) * gridUnit;
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
   ctx.beginPath();
-  ctx.moveTo(jibEndX, jibEndY);
-  ctx.lineTo(jibEndX, jibEndY + 12);
+  ctx.arc(pivotX, pivotY, maxRadius, 0, -mainAngle * Math.PI / 180, true);
   ctx.stroke();
+  ctx.setLineDash([]);
 
-  // 吊钩
-  ctx.fillStyle = '#f39c12';
-  ctx.beginPath();
-  ctx.arc(jibEndX, jibEndY + 15, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 重物(货物)
-  ctx.fillStyle = '#7f8c8d';
-  const cargoW = 16;
-  const cargoH = 12;
-  ctx.fillRect(jibEndX - cargoW/2, jibEndY + 17, cargoW, cargoH);
-
-  // 重物重量文字 (已隐藏)
+  // 吊钩和重物已隐藏
   // ctx.fillStyle = '#2c3e50';
   // ctx.font = 'bold 8px Arial';
   // ctx.textAlign = 'center';
@@ -411,8 +409,8 @@ function drawCrane(){
 
   // 大臂角度文字
   const angleTextR = arcR + 8;
-  const angleTextX = pivotX + angleTextR * Math.cos(mainRad / 2);
-  const angleTextY = pivotY - angleTextR * Math.sin(mainRad / 2);
+  const angleTextX = pivotX + angleTextR * Math.cos(mainRad / 2) + 5;
+  const angleTextY = pivotY - angleTextR * Math.sin(mainRad / 2) + 5;
   ctx.fillStyle = '#e74c3c';
   ctx.font = '9px Arial';
   ctx.textAlign = 'center';
@@ -426,16 +424,14 @@ function drawCrane(){
   ctx.fillStyle = '#27ae60';
   ctx.font = '11px Arial';
   ctx.textAlign = 'left';
-  ctx.fillText('幅度: ' + reach + 'm', jibEndX + 5, (centerY + jibEndY) / 2);
-  ctx.fillText('高度: ' + height + 'm', jibEndX + 5, (centerY + jibEndY) / 2 + 15);
+  ctx.fillText('幅度: ' + reach + 'm', jibEndX + 5, jibEndY + 15);
+  ctx.fillText('高度: ' + height + 'm', jibEndX + 5, jibEndY + 30);
   
-  // 绘制障碍物（长方形，灰色填充）
+  // 绘制障碍物（长方形边框）
   const obsX = startX + obstacleDist * gridUnit;
   const obsY = centerY - obstacleHeight * gridUnit;
   const obsW = obstacleWidth * gridUnit;
   const obsH = obstacleHeight * gridUnit;
-  ctx.fillStyle = '#95a5a6';
-  ctx.fillRect(obsX, obsY, obsW, obsH);
   ctx.strokeStyle = '#7f8c8d';
   ctx.lineWidth = 1;
   ctx.strokeRect(obsX, obsY, obsW, obsH);
@@ -798,5 +794,6 @@ initCanvasSize();
 loadData();
 simulate();
 </script>
+</div>
 </body>
 </html>
