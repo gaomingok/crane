@@ -18,8 +18,6 @@ public class FragmentAdapter extends FragmentStateAdapter {
             case 0:
                 return net.vicp.gaomingok.crane.ui.main.MainFragment.newInstance("index.html");
             case 1:
-                return net.vicp.gaomingok.crane.ui.main.MainFragment.newInstance("crane-2.0.html");
-            case 2:
                 return net.vicp.gaomingok.crane.ui.main.MainFragment.newInstance("crane-sim.html");
             default:
                 return net.vicp.gaomingok.crane.ui.main.MainFragment.newInstance("index.html");
@@ -28,6 +26,6 @@ public class FragmentAdapter extends FragmentStateAdapter {
 
     @Override
     public int getItemCount() {
-        return 3;
+        return 2;
     }
 }

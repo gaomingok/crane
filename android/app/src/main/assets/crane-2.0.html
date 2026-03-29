@@ -83,6 +83,14 @@
     <label>m =</label>
     <input type="number" id="m" value="5" step="0.1" min="0.1">
   </div>
+  <div class="input-group">
+    <label>副臂=</label>
+    <input type="number" id="jib" value="0" step="0.1" min="0">
+  </div>
+  <div class="input-group">
+    <label>副臂角=</label>
+    <input type="number" id="jibAngle" value="0" step="1" min="0">
+  </div>
   <button id="calcBtn">计算</button>
 </div>
 
@@ -96,7 +104,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-let x, c, m, h;
+let x, c, m, h, jib, jibAngle;
 let l, alpha;
 let O, D, A, B, E, K, F;
 let scale;
@@ -140,11 +148,30 @@ function dot(p,label,below=false,fontSize=12){
 
 function calculateAndDraw(){
   x = parseFloat(document.getElementById('x').value);
+  jib = parseFloat(document.getElementById("jib").value) || 0;
+  jibAngle = parseFloat(document.getElementById("jibAngle").value) || 0;
   c = parseFloat(document.getElementById('c').value);
   m = parseFloat(document.getElementById('m').value);
 
   // 计算 h
   h = m * (x + c) / x;
+  
+  // 如果有副臂，h应该等于J点的y坐标值
+  if (jib > 0) {
+    const jibRad = jibAngle * Math.PI / 180;
+    const jibX = (x + c) + jib * Math.cos(jibRad);
+    const jibY = h + jib * Math.sin(jibRad);
+    h = jibY;
+  }
+
+  // 计算副臂相关参数
+  let jibX = 0, jibY = 0, jibL = 0, jibAlpha = 0;
+  if (jib > 0) {
+    jibX = x + c + jib * Math.cos(jibAngle * Math.PI / 180);
+    jibY = h + jib * Math.sin(jibAngle * Math.PI / 180);
+    jibL = Math.hypot(jibX, jibY);
+    jibAlpha = Math.atan2(jibY, jibX) * 180 / Math.PI;
+  }
 
   // 计算图形边界
   const maxX = x + c * 2;
@@ -268,6 +295,27 @@ function drawAll(){
   const alphaTy = O.y + alphaTextR * Math.sin(alphaMidRad);
   text(`α = ${alpha.toFixed(1)}°`, alphaTx, alphaTy, 'center', fontSize);
 
+  // 绘制副臂（蓝色）
+  if (jib > 0) {
+    const jibEndX = F.x + jib * Math.cos(jibAngle * Math.PI / 180) * scale * 0.8;
+    const jibEndY = F.y - jib * Math.sin(jibAngle * Math.PI / 180) * scale * 0.8;
+    ctx.strokeStyle = "#3498db";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(F.x, F.y);
+    ctx.lineTo(jibEndX, jibEndY);
+    ctx.stroke();
+    // 副臂端点
+    ctx.fillStyle = "#3498db";
+    ctx.beginPath();
+    ctx.arc(jibEndX, jibEndY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.font = fontSize + "px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("J", jibEndX, jibEndY - 10);
+  }
+
   // 绘制点
   dot(O,'O',false,fontSize);
   dot(D,'D',true,fontSize);
@@ -291,6 +339,8 @@ function saveData(){
     localStorage.setItem('crane2_x', inputX);
     localStorage.setItem('crane2_c', inputC);
     localStorage.setItem('crane2_m', inputM);
+    localStorage.setItem('crane2_jib', document.getElementById('jib').value);
+    localStorage.setItem('crane2_jibAngle', document.getElementById('jibAngle').value);
   } catch(e) {}
 }
 
@@ -302,6 +352,10 @@ function loadData(){
     if(dataX !== null) document.getElementById('x').value = dataX;
     if(dataC !== null) document.getElementById('c').value = dataC;
     if(dataM !== null) document.getElementById('m').value = dataM;
+    var dataJib = localStorage.getItem('crane2_jib');
+    var dataJibAngle = localStorage.getItem('crane2_jibAngle');
+    if(dataJib !== null) document.getElementById('jib').value = dataJib;
+    if(dataJibAngle !== null) document.getElementById('jibAngle').value = dataJibAngle;
   } catch(e) {}
 }
 

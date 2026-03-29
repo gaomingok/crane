@@ -40,16 +40,15 @@ public class MainActivity extends AppCompatActivity {
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             if (position == 0) {
                 tab.setText("固定");
-            } else if (position == 1) {
-                tab.setText("动态");
             } else {
                 tab.setText("模拟器");
             }
         }).attach();
         
-        // 恢复上次选择的tab
+        // 恢复上次选择的tab，确保不越界
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         int lastTab = prefs.getInt(KEY_LAST_TAB, 0);
+        if (lastTab >= 2) lastTab = 0; // 旧的动态tab被移除，调整为0
         viewPager.setCurrentItem(lastTab, false);
         
         // 监听tab切换，保存选择的tab
