@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="utf-8">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>吊臂模拟器</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Microsoft YaHei"}
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:6px;
+    background:#f5f5f5;
+    min-height:100vh;
+  }
+  canvas{
+    border:1px solid #ddd;
+    background:#fff;
+    margin-bottom:6px;
+    max-width:100%;
+    height:auto;
+  }
+  .panel{
+    width:100%;
+    max-width:420px;
+    padding:8px;
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:6px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:center;
+  }
+  .input-group{display:flex;align-items:center;gap:3px}
+  .input-group label{font-size:12px;color:#333;white-space:nowrap}
+  input{
+    width:50px;
+    padding:5px 3px;
+    border:1px solid #ccc;
+    border-radius:4px;
+    font-size:12px;
+    text-align:center;
+  }
+  button{
+    padding:6px 16px;
+    background:#e74c3c;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    font-size:13px;
+  }
+  button:active{transform:scale(0.95)}
+  .result-info{
+    width:100%;
+    max-width:420px;
+    padding:6px 8px;
+    background:#fff3cd;
+    border-radius:4px;
+    font-size:11px;
+    color:#856404;
+    text-align:center;
+    line-height:1.4;
+  }
+  .result-info span{margin:0 5px}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap">
+  <span style="font-size:12px;color:#333;margin-right:6px">网格:</span>
+  <label style="font-size:11px;margin:0 8px 0 2px"><input type="radio" name="gridSize" value="100" checked>100×100</label>
+  <label style="font-size:11px;margin:0 8px 0 2px"><input type="radio" name="gridSize" value="150">150×150</label>
+  <label style="font-size:11px;margin:0 0 0 2px"><input type="radio" name="gridSize" value="250">250×250</label>
+</div>
+
+<div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:4px">
+  <span style="font-size:12px;color:#333;margin-right:6px">工况:</span>
+  <label style="font-size:11px;margin:0 8px 0 2px"><input type="radio" name="workMode" value="main" checked>主臂</label>
+  <label style="font-size:11px;margin:0 0 0 2px"><input type="radio" name="workMode" value="main+jib">主臂+副臂</label>
+</div>
+
+<div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:4px">
+  <span style="font-size:12px;color:#333;margin-right:6px">绞轴:</span>
+  <div class="input-group">
+    <label>距=</label>
+    <input type="number" id="pivotDist" value="0" step="1" style="width:45px">
+  </div>
+  <div class="input-group">
+    <label>高=</label>
+    <input type="number" id="pivotHeight" value="0" step="1" style="width:45px">
+  </div>
+</div>
+
+<div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:4px">
+  <span style="font-size:12px;color:#333;margin-right:6px">主臂:</span>
+  <div class="input-group">
+    <label>大臂=</label>
+    <input type="number" id="mainBoom" value="30" step="1" style="width:45px">
+  </div>
+  <div class="input-group">
+    <label>吊角=</label>
+    <input type="number" id="mainAngle" value="60" step="1" style="width:45px">
+  </div>
+</div>
+
+<div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:4px" id="jibGroup">
+  <span style="font-size:12px;color:#333;margin-right:6px">副臂:</span>
+  <div class="input-group">
+    <label>副臂=</label>
+    <input type="number" id="jibBoom" value="10" step="1" style="width:45px">
+  </div>
+  <div class="input-group" id="jibAngleGroup">
+    <label>副臂角=</label>
+    <input type="number" id="jibAngle" value="30" step="1" style="width:45px">
+  </div>
+</div>
+
+<div class="panel" style="margin-top:4px">
+  <div class="input-group">
+    <label>重量=</label>
+    <input type="number" id="loadWeight" value="5" step="0.1">
+  </div>
+  <button id="calcBtn">模拟</button>
+</div>
+
+<div class="result-info" id="resultInfo">
+  点击"模拟"查看结果
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE;
+let mainBoom, jibBoom, mainAngle, jibAngle, loadWeight;
+let gridSize = 100;
+let gridInterval = 5;
+let workMode = 'main'; // 'main' or 'main+jib'
+let pivotDist = 0; // 绞轴距离
+let pivotHeight = 0; // 绞轴高度
+
+function initCanvasSize(){
+  const screenWidth = window.innerWidth - 16;
+  CANVAS_WIDTH = Math.min(screenWidth, 450);
+  canvas.width = CANVAS_WIDTH;
+  // 从radio获取网格尺寸并设置gridInterval
+  const radio = document.querySelector('input[name="gridSize"]:checked');
+  const maxSize = radio ? parseInt(radio.value) : 100;
+  gridSize = maxSize;
+  gridInterval = (maxSize === 100) ? 5 : 10;
+  // 让画布高度等于网格区域宽度,形成正方形
+  // 网格区域宽度 = CANVAS_WIDTH - startX - 15
+  const startX = 25;
+  const gridWidth = CANVAS_WIDTH - startX - 15;
+  CANVAS_HEIGHT = 35 + gridWidth; // 底部留35px边距
+  canvas.height = CANVAS_HEIGHT;
+}
+
+function drawGrid(){
+  const startX = 25;
+  const gridWidth = CANVAS_WIDTH - startX - 15;
+  GRID_SIZE = gridWidth / gridSize;
+  const centerY = 20 + gridWidth; // 底部位置 = 35 + 网格宽度
+
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 0.5;
+
+  // 垂直网格线
+  for(let i = 0; i <= gridSize; i++){
+    const x = startX + i * GRID_SIZE;
+    const isBold = (i % gridInterval === 0);
+    ctx.beginPath();
+    ctx.moveTo(x, 20);
+    ctx.lineTo(x, centerY);
+    ctx.lineWidth = isBold ? 0.5 : 0;
+    ctx.strokeStyle = isBold ? '#999' : 'transparent';
+    ctx.stroke();
+  }
+
+  // 水平网格线
+  for(let i = 0; i <= gridSize; i++){
+    const y = centerY - i * GRID_SIZE;
+    const isBold = (i % gridInterval === 0);
+    ctx.beginPath();
+    ctx.moveTo(startX, y);
+    ctx.lineTo(startX + gridSize * GRID_SIZE, y);
+    ctx.lineWidth = isBold ? 0.5 : 0;
+    ctx.strokeStyle = isBold ? '#999' : 'transparent';
+    ctx.stroke();
+  }
+
+  // X轴线 (Y=0)
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(startX, centerY);
+  ctx.lineTo(startX + gridSize * GRID_SIZE, centerY);
+  ctx.stroke();
+
+  // Y轴线 (X=0)
+  ctx.beginPath();
+  ctx.moveTo(startX, 15);
+  ctx.lineTo(startX, centerY);
+  ctx.stroke();
+
+  // 坐标标签
+  ctx.fillStyle = '#000';
+  ctx.font = '9px Arial';
+
+  // X轴标签
+  ctx.textAlign = 'center';
+  for(let i = 0; i <= gridSize; i += gridInterval){
+    const x = startX + i * GRID_SIZE;
+    ctx.fillText(i.toString(), x, centerY + 12);
+  }
+
+  // Y轴标签
+  ctx.textAlign = 'right';
+  for(let i = 0; i <= gridSize; i += gridInterval){
+    const y = centerY - i * GRID_SIZE;
+    ctx.fillText(i.toString(), startX - 3, y + 3);
+  }
+
+  // 顶部标注
+  ctx.fillStyle = '#e74c3c';
+  ctx.font = 'bold 9px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('幅度(m)', startX + (gridSize * GRID_SIZE) / 2, 18);
+  ctx.save();
+  ctx.translate(10, centerY / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('高度(m)', 0, 0);
+  ctx.restore();
+}
+
+function drawCrane(){
+  const startX = 25;
+  const gridWidth = CANVAS_WIDTH - startX - 15;
+  const centerY = 20 + gridWidth;
+  const gridUnit = gridWidth / gridSize;
+
+  // 计算绞轴位置(相对于原点)
+  const pivotX = startX + pivotDist * gridUnit;
+  const pivotY = centerY - pivotHeight * gridUnit;
+
+  // 起重机底座(在原点)
+  ctx.fillStyle = '#34495e';
+  ctx.beginPath();
+  ctx.arc(startX, centerY, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 绘制绞轴标记
+  ctx.fillStyle = '#27ae60';
+  ctx.beginPath();
+  ctx.arc(pivotX, pivotY, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#27ae60';
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('绞轴', pivotX, pivotY - 10);
+
+  // 计算大臂末端位置(从绞轴点开始)
+  const mainRad = mainAngle * Math.PI / 180;
+  const mainEndX = pivotX + mainBoom * Math.cos(mainRad) * gridUnit;
+  const mainEndY = pivotY - mainBoom * Math.sin(mainRad) * gridUnit;
+
+  // 计算副臂末端位置（根据工况决定是否计算副臂）
+  // 副臂角是主臂延长线与副臂之间的夹角，0度表示在一条直线上
+  let jibEndX = mainEndX;
+  let jibEndY = mainEndY;
+
+  if(workMode === 'main+jib'){
+    // 副臂与主臂在一条直线上（不单独计算，和大臂一体）
+    jibEndX = mainEndX;
+    jibEndY = mainEndY;
+  }
+
+  // 绘制大臂(从绞轴点开始)
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pivotX, pivotY);
+  ctx.lineTo(mainEndX, mainEndY);
+  ctx.stroke();
+
+  // 大臂上的节段标记
+  ctx.fillStyle = '#c0392b';
+  for(let i = 1; i < mainBoom; i += 5){
+    const t = i / mainBoom;
+    const px = pivotX + (mainEndX - pivotX) * t;
+    const py = pivotY + (mainEndY - pivotY) * t;
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 根据工况绘制副臂
+  if(workMode === 'main+jib'){
+    // 副臂以主臂端点为圆心顺时针旋转jibAngle度
+    const jibAngleRad = (mainAngle - jibAngle) * Math.PI / 180;
+    jibEndX = mainEndX + jibBoom * Math.cos(jibAngleRad) * gridUnit;
+    jibEndY = mainEndY + jibBoom * Math.sin(jibAngleRad) * gridUnit;
+    
+    // 绘制副臂
+    ctx.strokeStyle = '#3498db';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mainEndX, mainEndY);
+    ctx.lineTo(jibEndX, jibEndY);
+    ctx.stroke();
+
+    // 副臂上的节段标记
+    ctx.fillStyle = '#2980b9';
+    for(let i = 1; i < jibBoom; i += 3){
+      const t = i / jibBoom;
+      const px = mainEndX + (jibEndX - mainEndX) * t;
+      const py = mainEndY + (jibEndY - mainEndY) * t;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 绘制吊钩和钢丝绳
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(jibEndX, jibEndY);
+  ctx.lineTo(jibEndX, jibEndY + 12);
+  ctx.stroke();
+
+  // 吊钩
+  ctx.fillStyle = '#f39c12';
+  ctx.beginPath();
+  ctx.arc(jibEndX, jibEndY + 15, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 重物(货物)
+  ctx.fillStyle = '#7f8c8d';
+  const cargoW = 16;
+  const cargoH = 12;
+  ctx.fillRect(jibEndX - cargoW/2, jibEndY + 17, cargoW, cargoH);
+
+  // 重物重量文字
+  ctx.fillStyle = '#2c3e50';
+  ctx.font = 'bold 8px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(loadWeight + 't', jibEndX, jibEndY + 27);
+
+  // 绘制角度标注（从绞轴点）
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 1;
+  const arcR = 15;
+  ctx.beginPath();
+  ctx.arc(pivotX, pivotY, arcR, 0, -mainRad, true);
+  ctx.stroke();
+
+  // 大臂角度文字
+  const angleTextR = arcR + 8;
+  const angleTextX = pivotX + angleTextR * Math.cos(mainRad / 2);
+  const angleTextY = pivotY - angleTextR * Math.sin(mainRad / 2);
+  ctx.fillStyle = '#e74c3c';
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(mainAngle + '°', angleTextX, angleTextY);
+
+  // 计算幅度和高度(转换为米)
+  const reach = ((jibEndX - startX) / gridUnit).toFixed(1);
+  const height = ((centerY - jibEndY) / gridUnit).toFixed(1);
+
+  // 在图中标注
+  ctx.fillStyle = '#27ae60';
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('幅度: ' + reach + 'm', jibEndX + 5, (centerY + jibEndY) / 2);
+  ctx.fillText('高度: ' + height + 'm', jibEndX + 5, (centerY + jibEndY) / 2 + 10);
+}
+
+function draw(){
+  ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  drawGrid();
+  drawCrane();
+}
+
+function simulate(){
+  gridSize = parseInt(document.querySelector('input[name="gridSize"]:checked').value);
+  gridInterval = (gridSize === 100) ? 5 : 10;
+
+  // 重新初始化canvas尺寸以适应网格
+  initCanvasSize();
+
+  mainBoom = parseFloat(document.getElementById('mainBoom').value) || 30;
+  jibBoom = parseFloat(document.getElementById('jibBoom').value) || 10;
+  mainAngle = parseFloat(document.getElementById('mainAngle').value) || 60;
+  jibAngle = parseFloat(document.getElementById('jibAngle').value) || 30;
+  loadWeight = parseFloat(document.getElementById('loadWeight').value) || 5;
+  pivotDist = parseFloat(document.getElementById('pivotDist').value) || 0;
+  pivotHeight = parseFloat(document.getElementById('pivotHeight').value) || 0;
+
+  // 计算大臂顶端位置（从绞轴点开始）
+  const mainRad = mainAngle * Math.PI / 180;
+  const mainTopX = pivotDist + mainBoom * Math.cos(mainRad);
+  const mainTopY = pivotHeight + mainBoom * Math.sin(mainRad);
+
+  // 副臂末端位置（以主臂端点为圆心顺时针旋转jibAngle度）
+  const jibAngleRad = (mainAngle - jibAngle) * Math.PI / 180;
+  const jibEndX = mainTopX + jibBoom * Math.cos(jibAngleRad);
+  const jibEndY = mainTopY + jibBoom * Math.sin(jibAngleRad);
+
+  const reach = jibEndX.toFixed(1);
+  const height = jibEndY.toFixed(1);
+
+  document.getElementById('resultInfo').innerHTML =
+    '<span>幅度: <b>' + reach + 'm</b></span>' +
+    '<span>高度: <b>' + height + 'm</b></span>';
+
+  draw();
+}
+
+function saveData(){
+  try{
+    var gridVal = document.querySelector('input[name="gridSize"]:checked').value;
+    localStorage.setItem('sim_gridSize', gridVal);
+    var workVal = document.querySelector('input[name="workMode"]:checked').value;
+    localStorage.setItem('sim_workMode', workVal);
+    localStorage.setItem('sim_mainBoom', document.getElementById('mainBoom').value);
+    localStorage.setItem('sim_jibBoom', document.getElementById('jibBoom').value);
+    localStorage.setItem('sim_mainAngle', document.getElementById('mainAngle').value);
+    localStorage.setItem('sim_jibAngle', document.getElementById('jibAngle').value);
+    localStorage.setItem('sim_loadWeight', document.getElementById('loadWeight').value);
+    localStorage.setItem('sim_pivotDist', document.getElementById('pivotDist').value);
+    localStorage.setItem('sim_pivotHeight', document.getElementById('pivotHeight').value);
+  }catch(e){}
+}
+
+function loadData(){
+  try{
+    var v = localStorage.getItem('sim_gridSize');
+    if(v !== null){
+      var radio = document.querySelector('input[name="gridSize"][value="'+v+'"]');
+      if(radio){
+        radio.checked = true;
+        gridSize = parseInt(v);
+        gridInterval = (gridSize === 100) ? 5 : 10;
+      }
+    }else{
+      // 默认100
+      gridSize = 100;
+      gridInterval = 5;
+    }
+
+    // 加载工况
+    v = localStorage.getItem('sim_workMode');
+    if(v !== null){
+      var wRadio = document.querySelector('input[name="workMode"][value="'+v+'"]');
+      if(wRadio){
+        wRadio.checked = true;
+        workMode = v;
+      }
+    }
+
+    v = localStorage.getItem('sim_mainBoom');
+    if(v !== null) document.getElementById('mainBoom').value = v;
+    v = localStorage.getItem('sim_jibBoom');
+    if(v !== null) document.getElementById('jibBoom').value = v;
+    v = localStorage.getItem('sim_mainAngle');
+    if(v !== null) document.getElementById('mainAngle').value = v;
+    v = localStorage.getItem('sim_jibAngle');
+    if(v !== null) document.getElementById('jibAngle').value = v;
+    v = localStorage.getItem('sim_loadWeight');
+    if(v !== null) document.getElementById('loadWeight').value = v;
+    v = localStorage.getItem('sim_pivotDist');
+    if(v !== null) document.getElementById('pivotDist').value = v;
+    v = localStorage.getItem('sim_pivotHeight');
+    if(v !== null) document.getElementById('pivotHeight').value = v;
+
+    // 设置副臂参数显示/隐藏
+    var jibGroup = document.getElementById('jibGroup');
+    var jibAngleGroup = document.getElementById('jibAngleGroup');
+    if(workMode === 'main'){
+      jibGroup.style.display = 'none';
+      jibAngleGroup.style.display = 'none';
+    }else{
+      jibGroup.style.display = 'flex';
+      jibAngleGroup.style.display = 'flex';
+    }
+
+    // 加载网格尺寸后初始化画布
+    initCanvasSize();
+    simulate();
+  }catch(e){}
+}
+
+document.getElementById('calcBtn').addEventListener('click', function(){
+  saveData();
+  simulate();
+});
+
+// 网格选择改变时立即重新绘制并保存
+document.querySelectorAll('input[name="gridSize"]').forEach(function(radio){
+  radio.addEventListener('change', function(){
+    gridSize = parseInt(this.value);
+    gridInterval = (gridSize === 100) ? 5 : 10;
+    try{localStorage.setItem('sim_gridSize', gridSize);}catch(e){}
+    initCanvasSize();
+    draw();
+  });
+});
+
+// 工况选择改变时立即重新绘制并保存
+document.querySelectorAll('input[name="workMode"]').forEach(function(radio){
+  radio.addEventListener('change', function(){
+    workMode = this.value;
+    try{localStorage.setItem('sim_workMode', workMode);}catch(e){}
+    // 显示/隐藏副臂参数
+    var jibGroup = document.getElementById('jibGroup');
+    var jibAngleGroup = document.getElementById('jibAngleGroup');
+    if(workMode === 'main'){
+      jibGroup.style.display = 'none';
+      jibAngleGroup.style.display = 'none';
+    }else{
+      jibGroup.style.display = 'flex';
+      jibAngleGroup.style.display = 'flex';
+    }
+    draw();
+  });
+});
+
+window.addEventListener('resize', function(){
+  initCanvasSize();
+  draw();
+});
+
+initCanvasSize();
+loadData();
+simulate();
+</script>
+</body>
+</html>

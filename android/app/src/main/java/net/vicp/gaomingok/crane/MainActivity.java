@@ -40,8 +40,10 @@ public class MainActivity extends AppCompatActivity {
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             if (position == 0) {
                 tab.setText("固定");
-            } else {
+            } else if (position == 1) {
                 tab.setText("动态");
+            } else {
+                tab.setText("模拟器");
             }
         }).attach();
         
