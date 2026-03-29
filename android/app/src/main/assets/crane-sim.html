@@ -53,6 +53,22 @@
     font-size:13px;
   }
   button:active{transform:scale(0.95)}
+  .num-btn{
+    width:28px;
+    height:28px;
+    padding:0;
+    background:#3498db;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    font-size:16px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .num-btn:active{background:#2980b9}
   .result-info{
     width:100%;
     max-width:420px;
@@ -87,11 +103,15 @@
   <span style="font-size:12px;color:#333;margin-right:6px">绞轴:</span>
   <div class="input-group">
     <label>距离=</label>
-    <input type="number" id="pivotDist" value="0" step="1" style="width:45px">
+    <button class="num-btn" data-target="pivotDist" data-dir="-">-</button>
+    <input type="number" id="pivotDist" value="0" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="pivotDist" data-dir="+">+</button>
   </div>
   <div class="input-group">
     <label>高度=</label>
-    <input type="number" id="pivotHeight" value="0" step="1" style="width:45px">
+    <button class="num-btn" data-target="pivotHeight" data-dir="-">-</button>
+    <input type="number" id="pivotHeight" value="0" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="pivotHeight" data-dir="+">+</button>
   </div>
 </div>
 
@@ -99,11 +119,15 @@
   <span style="font-size:12px;color:#333;margin-right:6px">主臂:</span>
   <div class="input-group">
     <label>大臂=</label>
-    <input type="number" id="mainBoom" value="30" step="1" style="width:45px">
+    <button class="num-btn" data-target="mainBoom" data-dir="-">-</button>
+    <input type="number" id="mainBoom" value="30" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="mainBoom" data-dir="+">+</button>
   </div>
   <div class="input-group">
     <label>吊角=</label>
-    <input type="number" id="mainAngle" value="60" step="1" style="width:45px">
+    <button class="num-btn" data-target="mainAngle" data-dir="-">-</button>
+    <input type="number" id="mainAngle" value="60" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="mainAngle" data-dir="+">+</button>
   </div>
 </div>
 
@@ -111,11 +135,37 @@
   <span style="font-size:12px;color:#333;margin-right:6px">副臂:</span>
   <div class="input-group">
     <label>副臂=</label>
-    <input type="number" id="jibBoom" value="10" step="1" style="width:45px">
+    <button class="num-btn" data-target="jibBoom" data-dir="-">-</button>
+    <input type="number" id="jibBoom" value="10" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="jibBoom" data-dir="+">+</button>
   </div>
   <div class="input-group" id="jibAngleGroup">
     <label>副臂角=</label>
-    <input type="number" id="jibAngle" value="30" step="1" style="width:45px">
+    <button class="num-btn" data-target="jibAngle" data-dir="-">-</button>
+    <input type="number" id="jibAngle" value="30" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="jibAngle" data-dir="+">+</button>
+  </div>
+</div>
+
+<div class="panel" style="display:flex;flex-direction:row;align-items:center;justify-content:center;margin-top:4px">
+  <span style="font-size:12px;color:#333;margin-right:6px">障碍物:</span>
+  <div class="input-group">
+    <label>距离=</label>
+    <button class="num-btn" data-target="obstacleDist" data-dir="-">-</button>
+    <input type="number" id="obstacleDist" value="20" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="obstacleDist" data-dir="+">+</button>
+  </div>
+  <div class="input-group">
+    <label>高度=</label>
+    <button class="num-btn" data-target="obstacleHeight" data-dir="-">-</button>
+    <input type="number" id="obstacleHeight" value="10" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="obstacleHeight" data-dir="+">+</button>
+  </div>
+  <div class="input-group" style="clear: left">
+    <label>宽度=</label>
+    <button class="num-btn" data-target="obstacleWidth" data-dir="-">-</button>
+    <input type="number" id="obstacleWidth" value="5" step="0.1" style="width:45px">
+    <button class="num-btn" data-target="obstacleWidth" data-dir="+">+</button>
   </div>
 </div>
 
@@ -131,13 +181,16 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-let CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE;
+let CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE, gridUnit;
 let mainBoom, jibBoom, mainAngle, jibAngle, loadWeight;
 let gridSize = 100;
 let gridInterval = 5;
 let workMode = 'main'; // 'main' or 'main+jib'
 let pivotDist = 0; // 绞轴距离
 let pivotHeight = 0; // 绞轴高度
+let obstacleDist = 20; // 障碍物距离
+let obstacleHeight = 10; // 障碍物高度
+let obstacleWidth = 5; // 障碍物宽度
 
 function initCanvasSize(){
   const screenWidth = window.innerWidth - 16;
@@ -237,7 +290,7 @@ function drawCrane(){
   const startX = 25;
   const gridWidth = CANVAS_WIDTH - startX - 15;
   const centerY = 20 + gridWidth;
-  const gridUnit = gridWidth / gridSize;
+  gridUnit = gridWidth / gridSize;
 
   // 计算绞轴位置(相对于原点)
   const pivotX = startX + pivotDist * gridUnit;
@@ -375,6 +428,132 @@ function drawCrane(){
   ctx.textAlign = 'left';
   ctx.fillText('幅度: ' + reach + 'm', jibEndX + 5, (centerY + jibEndY) / 2);
   ctx.fillText('高度: ' + height + 'm', jibEndX + 5, (centerY + jibEndY) / 2 + 15);
+  
+  // 绘制障碍物（长方形，灰色填充）
+  const obsX = startX + obstacleDist * gridUnit;
+  const obsY = centerY - obstacleHeight * gridUnit;
+  const obsW = obstacleWidth * gridUnit;
+  const obsH = obstacleHeight * gridUnit;
+  ctx.fillStyle = '#95a5a6';
+  ctx.fillRect(obsX, obsY, obsW, obsH);
+  ctx.strokeStyle = '#7f8c8d';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(obsX, obsY, obsW, obsH);
+  
+  // 障碍物标签
+  ctx.fillStyle = '#7f8c8d';
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('障碍物', obsX + obsW/2, obsY - 5);
+  
+  // 计算大臂与障碍物的最近距离
+  // 障碍物矩形: obsX, obsY 到 obsX+obsW, obsY+obsH
+  // 大臂线段: (pivotX, pivotY) 到 (mainEndX, mainEndY)
+  const minDistMain = lineSegmentToRectDist(pivotX, pivotY, mainEndX, mainEndY, obsX, obsY, obsX + obsW, obsY + obsH);
+  
+  // 如果有副臂，也计算副臂与障碍物的距离
+  let minDistJib = 99999;
+  if(workMode === 'main+jib'){
+    minDistJib = lineSegmentToRectDist(mainEndX, mainEndY, jibEndX, jibEndY, obsX, obsY, obsX + obsW, obsY + obsH);
+  }
+  
+  const finalMinDist = Math.min(minDistMain, minDistJib);
+  
+  // 显示最近距离
+  ctx.fillStyle = '#e74c3c';
+  ctx.font = 'bold 10px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('最近距离: ' + finalMinDist.toFixed(1) + 'm', startX + 5, centerY + 30);
+}
+
+// 计算线段(x1,y1)-(x2,y2)到矩形(x3,y3)-(x4,y4)的最近距离（像素）
+function lineSegmentToRectDist(x1, y1, x2, y2, x3, y3, x4, y4){
+  // 1. 线段两个端点到矩形的最近距离
+  let minD = pointToRectDist(x1, y1, x3, y3, x4, y4);
+  minD = Math.min(minD, pointToRectDist(x2, y2, x3, y3, x4, y4));
+  
+  // 2. 线段与矩形四条边的交点距离（如果相交，距离为0）
+  // 上边 (x3,y3)-(x4,y3)
+  let d = lineSegmentIntersect(x1, y1, x2, y2, x3, y3, x4, y3);
+  if(d >= 0) minD = Math.min(minD, d);
+  // 下边 (x3,y4)-(x4,y4)
+  d = lineSegmentIntersect(x1, y1, x2, y2, x3, y4, x4, y4);
+  if(d >= 0) minD = Math.min(minD, d);
+  // 左边 (x3,y3)-(x3,y4)
+  d = lineSegmentIntersect(x1, y1, x2, y2, x3, y3, x3, y4);
+  if(d >= 0) minD = Math.min(minD, d);
+  // 右边 (x4,y3)-(x4,y4)
+  d = lineSegmentIntersect(x1, y1, x2, y2, x4, y3, x4, y4);
+  if(d >= 0) minD = Math.min(minD, d);
+  
+  return minD;
+}
+
+// 计算点(px,py)到矩形(x3,y3)-(x4,y4)的最近距离
+function pointToRectDist(px, py, x3, y3, x4, y4){
+  const dx = Math.max(x3 - px, 0, px - x4);
+  const dy = Math.max(y3 - py, 0, py - y4);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// 检测两条线段是否相交，返回交点距离（不相交返回-1）
+function lineSegmentIntersect(x1, y1, x2, y2, x3, y3, x4, y4){
+  // 使用向量叉积判断是否相交
+  const d1 = direction(x3, y3, x4, y4, x1, y1);
+  const d2 = direction(x3, y3, x4, y4, x2, y2);
+  const d3 = direction(x1, y1, x2, y2, x3, y3);
+  const d4 = direction(x1, y1, x2, y2, x4, y4);
+  
+  if(((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && 
+     ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))){
+    return 0; // 相交，距离为0
+  }
+  
+  // 检查是否共线且重叠
+  if(d1 === 0 && onSegment(x3, y3, x4, y4, x1, y1)) return 0;
+  if(d2 === 0 && onSegment(x3, y3, x4, y4, x2, y2)) return 0;
+  if(d3 === 0 && onSegment(x1, y1, x2, y2, x3, y3)) return 0;
+  if(d4 === 0 && onSegment(x1, y1, x2, y2, x4, y4)) return 0;
+  
+  return -1; // 不相交
+}
+
+function direction(px, py, qx, qy, rx, ry){
+  return (qx - px) * (ry - py) - (qy - py) * (rx - px);
+}
+
+function onSegment(px, py, qx, qy, rx, ry){
+  return Math.min(px, qx) <= rx && rx <= Math.max(px, qx) &&
+         Math.min(py, qy) <= ry && ry <= Math.max(py, qy);
+}
+
+// 计算点(px,py)到线段(x1,y1)-(x2,y2)的最短距离（像素）
+function pointToLineSegmentDist2(px, py, x1, y1, x2, y2){
+  const A = px - x1;
+  const B = py - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+  
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let param = -1;
+  if(lenSq !== 0) param = dot / lenSq;
+  
+  let xx, yy;
+  if(param < 0){
+    xx = x1;
+    yy = y1;
+  }else if(param > 1){
+    xx = x2;
+    yy = y2;
+  }else{
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+  
+  const dx = px - xx;
+  const dy = py - yy;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 function draw(){
@@ -390,15 +569,18 @@ function simulate(){
   // 重新初始化canvas尺寸以适应网格
   initCanvasSize();
 
-  mainBoom = parseFloat(document.getElementById('mainBoom').value) || 30;
-  jibBoom = parseFloat(document.getElementById('jibBoom').value) || 10;
-  mainAngle = parseFloat(document.getElementById('mainAngle').value) || 60;
-  jibAngle = parseFloat(document.getElementById('jibAngle').value) || 0;
+  mainBoom = Math.round((parseFloat(document.getElementById('mainBoom').value) || 30) * 10) / 10;
+  jibBoom = Math.round((parseFloat(document.getElementById('jibBoom').value) || 10) * 10) / 10;
+  mainAngle = Math.round((parseFloat(document.getElementById('mainAngle').value) || 60) * 10) / 10;
+  jibAngle = Math.round((parseFloat(document.getElementById('jibAngle').value) || 0) * 10) / 10;
   // loadWeight 已隐藏，但代码中仍需变量（绘图可能用到）
   const loadWeightElem = document.getElementById('loadWeight');
-  loadWeight = loadWeightElem ? (parseFloat(loadWeightElem.value) || 5) : 5;
-  pivotDist = parseFloat(document.getElementById('pivotDist').value) || 0;
-  pivotHeight = parseFloat(document.getElementById('pivotHeight').value) || 0;
+  loadWeight = loadWeightElem ? (Math.round((parseFloat(loadWeightElem.value) || 5) * 10) / 10) : 5;
+  pivotDist = Math.round((parseFloat(document.getElementById('pivotDist').value) || 0) * 10) / 10;
+  pivotHeight = Math.round((parseFloat(document.getElementById('pivotHeight').value) || 0) * 10) / 10;
+  obstacleDist = Math.round((parseFloat(document.getElementById('obstacleDist').value) || 20) * 10) / 10;
+  obstacleHeight = Math.round((parseFloat(document.getElementById('obstacleHeight').value) || 10) * 10) / 10;
+  obstacleWidth = Math.round((parseFloat(document.getElementById('obstacleWidth').value) || 5) * 10) / 10;
 
   // 计算大臂顶端位置（从绞轴点开始）
   const mainRad = mainAngle * Math.PI / 180;
@@ -433,6 +615,9 @@ function saveData(){
     if(loadWeightElem) localStorage.setItem('sim_loadWeight', loadWeightElem.value);
     localStorage.setItem('sim_pivotDist', document.getElementById('pivotDist').value);
     localStorage.setItem('sim_pivotHeight', document.getElementById('pivotHeight').value);
+    localStorage.setItem('sim_obstacleDist', document.getElementById('obstacleDist').value);
+    localStorage.setItem('sim_obstacleHeight', document.getElementById('obstacleHeight').value);
+    localStorage.setItem('sim_obstacleWidth', document.getElementById('obstacleWidth').value);
   }catch(e){}
 }
 
@@ -463,22 +648,28 @@ function loadData(){
     }
 
     v = localStorage.getItem('sim_mainBoom');
-    if(v !== null) document.getElementById('mainBoom').value = v;
+    if(v !== null) document.getElementById('mainBoom').value = Math.round(parseFloat(v) * 10) / 10;
     v = localStorage.getItem('sim_jibBoom');
-    if(v !== null) document.getElementById('jibBoom').value = v;
+    if(v !== null) document.getElementById('jibBoom').value = Math.round(parseFloat(v) * 10) / 10;
     v = localStorage.getItem('sim_mainAngle');
-    if(v !== null) document.getElementById('mainAngle').value = v;
+    if(v !== null) document.getElementById('mainAngle').value = Math.round(parseFloat(v) * 10) / 10;
     v = localStorage.getItem('sim_jibAngle');
-    if(v !== null) document.getElementById('jibAngle').value = v;
+    if(v !== null) document.getElementById('jibAngle').value = Math.round(parseFloat(v) * 10) / 10;
     v = localStorage.getItem('sim_loadWeight');
     if(v !== null){
       var loadWeightElem = document.getElementById('loadWeight');
-      if(loadWeightElem) loadWeightElem.value = v;
+      if(loadWeightElem) loadWeightElem.value = Math.round(parseFloat(v) * 10) / 10;
     }
     v = localStorage.getItem('sim_pivotDist');
-    if(v !== null) document.getElementById('pivotDist').value = v;
+    if(v !== null) document.getElementById('pivotDist').value = Math.round(parseFloat(v) * 10) / 10;
     v = localStorage.getItem('sim_pivotHeight');
-    if(v !== null) document.getElementById('pivotHeight').value = v;
+    if(v !== null) document.getElementById('pivotHeight').value = Math.round(parseFloat(v) * 10) / 10;
+    v = localStorage.getItem('sim_obstacleDist');
+    if(v !== null) document.getElementById('obstacleDist').value = Math.round(parseFloat(v) * 10) / 10;
+    v = localStorage.getItem('sim_obstacleHeight');
+    if(v !== null) document.getElementById('obstacleHeight').value = Math.round(parseFloat(v) * 10) / 10;
+    v = localStorage.getItem('sim_obstacleWidth');
+    if(v !== null) document.getElementById('obstacleWidth').value = Math.round(parseFloat(v) * 10) / 10;
 
     // 设置副臂参数显示/隐藏
     var jibGroup = document.getElementById('jibGroup');
@@ -535,6 +726,72 @@ document.querySelectorAll('input[name="workMode"]').forEach(function(radio){
 window.addEventListener('resize', function(){
   initCanvasSize();
   draw();
+});
+
+// 数字输入框的 +/- 按钮
+document.querySelectorAll('.num-btn').forEach(function(btn){
+  var targetId = btn.getAttribute('data-target');
+  var dir = btn.getAttribute('data-dir');
+  var input = document.getElementById(targetId);
+  if(!input) return;
+  
+  var timeoutTimer = null;
+  var intervalTimer = null;
+  var step = 0.1;
+  var fastStep = 0.5;
+  
+  function doChange(){
+    var current = parseFloat(input.value) || 0;
+    var delta = (dir === '+') ? step : -step;
+    var newVal = current + delta;
+    // 只保留1位小数
+    input.value = Math.round(newVal * 10) / 10;
+    // 触发输入事件让数值立即更新
+    input.dispatchEvent(new Event('input'));
+  }
+  
+  function startLongPress(){
+    step = fastStep;
+    doChange();
+    intervalTimer = setInterval(doChange, 150);
+  }
+  
+  function stopLongPress(){
+    step = 0.1;
+    if(timeoutTimer){
+      clearTimeout(timeoutTimer);
+      timeoutTimer = null;
+    }
+    if(intervalTimer){
+      clearInterval(intervalTimer);
+      intervalTimer = null;
+    }
+    // 抬起后立即触发一次模拟更新
+    saveData();
+    simulate();
+  }
+  
+  btn.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    doChange();
+    timeoutTimer = setTimeout(startLongPress, 400);
+  });
+  
+  btn.addEventListener('mouseup', stopLongPress);
+  btn.addEventListener('mouseleave', stopLongPress);
+  
+  btn.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    doChange();
+    timeoutTimer = setTimeout(startLongPress, 400);
+  });
+  
+  btn.addEventListener('touchend', function(e){
+    e.preventDefault();
+    stopLongPress();
+  });
+  
+  btn.addEventListener('touchcancel', stopLongPress);
 });
 
 initCanvasSize();
